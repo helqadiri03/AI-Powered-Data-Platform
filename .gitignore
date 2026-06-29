@@ -1,0 +1,32 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+env/
+.venv/
+
+# Package distribution
+*.egg-info/
+*.egg
+dist/
+build/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+
+# Environment variables
+.env
+
+# Logs and runtime files
+logs/
+*.log
+
+# Docker
+docker-compose.override.yml
+
+# macOS
+.DS_Store
