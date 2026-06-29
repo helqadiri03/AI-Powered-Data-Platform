@@ -25,8 +25,11 @@ build/
 logs/
 *.log
 
+data/
+
 # Docker
 docker-compose.override.yml
 
 # macOS
 .DS_Store
+
