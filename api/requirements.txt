@@ -1,0 +1,14 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.0
+
+# Snowflake
+snowflake-connector-python>=3.6.0
+
+# Groq (OpenAI-compatible client)
+groq>=0.9.0
+
+# SQL validation
+sqlglot>=23.0.0
