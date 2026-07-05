@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: raw_ecommerce
+    database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+    schema: "{{ env_var('SNOWFLAKE_SCHEMA') }}"
+    tables:
+      - name: ad_spend
+      - name: campaigns
+      - name: clicks
+      - name: customers
+      - name: order_items
+      - name: orders
+      - name: products
+      - name: reviews
