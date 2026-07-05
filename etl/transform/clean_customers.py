@@ -1,11 +1,12 @@
-import pandas as pd
 import os
 import logging
 import sys
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_timestamp, lower, trim, when
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -14,36 +15,43 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def clean_customers(df, output_dir):
-    logger.info("Starting clean_customers transformation...")
-    logger.debug(f"Initial shape: {df.shape}")
+def clean_customers(spark, input_path, output_dir):
+    logger.info("Starting PySpark clean_customers transformation...")
+    
+    df = spark.read.parquet(input_path)
+    logger.info(f"Initial row count: {df.count()}")
 
     if "email" in df.columns:
-        df["email"] = df["email"].str.strip().str.lower()
+        df = df.withColumn("email", lower(trim(col("email"))))
         
     if "registration_date" in df.columns:
-        df["registration_date"] = pd.to_datetime(df["registration_date"], errors="coerce")
+        df = df.withColumn("registration_date", to_timestamp(col("registration_date")))
         
-    # Handle missing names
-    for col in ["first_name", "last_name"]:
-        if col in df.columns:
-            df[col] = df[col].fillna("Unknown")
-            
-    logger.debug(f"Shape after transformations: {df.shape}")
+    for c in ["first_name", "last_name"]:
+        if c in df.columns:
+            df = df.withColumn(c, when(col(c).isNull(), "Unknown").otherwise(col(c)))
 
     # Save to parquet
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "customers.parquet")
-    df.to_parquet(output_path, index=False)
-    logger.info(f"Successfully saved {len(df)} rows to {output_path}")
+    df.write.mode("overwrite").parquet(output_path)
+    
+    final_count = spark.read.parquet(output_path).count()
+    logger.info(f"Successfully saved {final_count} rows to {output_path}")
 
 if __name__ == "__main__":
     input_path = "data/bronze/postgres/customers.parquet"
     output_dir = "data/silver/postgres"
     
-    logger.info(f"Reading data from {input_path}")
+    spark = SparkSession.builder \
+        .appName("CleanCustomers") \
+        .master("local[*]") \
+        .getOrCreate()
+    spark.sparkContext.setLogLevel("ERROR")
+    
     try:
-        df = pd.read_parquet(input_path)
-        clean_customers(df, output_dir)
+        clean_customers(spark, input_path, output_dir)
     except Exception as e:
         logger.error(f"Error processing customers: {e}", exc_info=True)
+    finally:
+        spark.stop()

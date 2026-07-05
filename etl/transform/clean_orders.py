@@ -1,11 +1,12 @@
-import pandas as pd
 import os
 import logging
 import sys
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_timestamp
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -14,37 +15,44 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def clean_orders(df, output_dir):
-    logger.info("Starting clean_orders transformation...")
-    logger.debug(f"Initial shape: {df.shape}")
+def clean_orders(spark, input_path, output_dir):
+    logger.info("Starting PySpark clean_orders transformation...")
+    
+    df = spark.read.parquet(input_path)
+    logger.info(f"Initial row count: {df.count()}")
 
     if "order_date" in df.columns:
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
+        df = df.withColumn("order_date", to_timestamp(col("order_date")))
         
     if "total_amount" in df.columns:
-        df["total_amount"] = pd.to_numeric(df["total_amount"], errors="coerce").fillna(0)
-        df = df[df["total_amount"] >= 0]
+        df = df.withColumn("total_amount", col("total_amount").cast("double"))
+        df = df.fillna({"total_amount": 0.0})
+        df = df.filter(col("total_amount") >= 0)
         
     if "order_id" in df.columns:
-        initial_len = len(df)
-        df.drop_duplicates(subset=["order_id"], inplace=True)
-        logger.info(f"Dropped {initial_len - len(df)} duplicate orders.")
-        
-    logger.debug(f"Shape after transformations: {df.shape}")
+        df = df.dropDuplicates(["order_id"])
 
     # Save to parquet
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "orders.parquet")
-    df.to_parquet(output_path, index=False)
-    logger.info(f"Successfully saved {len(df)} rows to {output_path}")
+    df.write.mode("overwrite").parquet(output_path)
+    
+    final_count = spark.read.parquet(output_path).count()
+    logger.info(f"Successfully saved {final_count} rows to {output_path}")
 
 if __name__ == "__main__":
     input_path = "data/bronze/postgres/orders.parquet"
     output_dir = "data/silver/postgres"
     
-    logger.info(f"Reading data from {input_path}")
+    spark = SparkSession.builder \
+        .appName("CleanOrders") \
+        .master("local[*]") \
+        .getOrCreate()
+    spark.sparkContext.setLogLevel("ERROR")
+    
     try:
-        df = pd.read_parquet(input_path)
-        clean_orders(df, output_dir)
+        clean_orders(spark, input_path, output_dir)
     except Exception as e:
         logger.error(f"Error processing orders: {e}", exc_info=True)
+    finally:
+        spark.stop()

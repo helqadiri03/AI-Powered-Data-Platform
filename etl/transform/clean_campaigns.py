@@ -1,11 +1,12 @@
-import pandas as pd
 import os
 import logging
 import sys
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_timestamp
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -14,33 +15,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def clean_campaigns(df, output_dir):
-    logger.info("Starting clean_campaigns transformation...")
-    logger.debug(f"Initial shape: {df.shape}")
+def clean_campaigns(spark, input_path, output_dir):
+    logger.info("Starting PySpark clean_campaigns transformation...")
+    
+    df = spark.read.option("multiline", "true").json(input_path)
+    logger.info(f"Initial row count: {df.count()}")
 
     if "start_date" in df.columns:
-        df["start_date"] = pd.to_datetime(df["start_date"], errors="coerce")
+        df = df.withColumn("start_date", to_timestamp(col("start_date")))
     if "end_date" in df.columns:
-        df["end_date"] = pd.to_datetime(df["end_date"], errors="coerce")
+        df = df.withColumn("end_date", to_timestamp(col("end_date")))
         
     if "campaign_budget" in df.columns:
-        df["campaign_budget"] = pd.to_numeric(df["campaign_budget"], errors="coerce").fillna(0)
-        
-    logger.debug(f"Shape after type conversions: {df.shape}")
+        df = df.withColumn("campaign_budget", col("campaign_budget").cast("double"))
+        df = df.fillna({"campaign_budget": 0.0})
 
     # Save to parquet
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "campaigns.parquet")
-    df.to_parquet(output_path, index=False)
-    logger.info(f"Successfully saved {len(df)} rows to {output_path}")
+    df.write.mode("overwrite").parquet(output_path)
+    
+    final_count = spark.read.parquet(output_path).count()
+    logger.info(f"Successfully saved {final_count} rows to {output_path}")
 
 if __name__ == "__main__":
     input_path = "data/bronze/mongodb/campaigns.json"
     output_dir = "data/silver/mongodb"
     
-    logger.info(f"Reading data from {input_path}")
+    spark = SparkSession.builder \
+        .appName("CleanCampaigns") \
+        .master("local[*]") \
+        .getOrCreate()
+    spark.sparkContext.setLogLevel("ERROR")
+    
     try:
-        df = pd.read_json(input_path)
-        clean_campaigns(df, output_dir)
+        clean_campaigns(spark, input_path, output_dir)
     except Exception as e:
         logger.error(f"Error processing campaigns: {e}", exc_info=True)
+    finally:
+        spark.stop()

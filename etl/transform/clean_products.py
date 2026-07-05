@@ -1,11 +1,12 @@
-import pandas as pd
 import os
 import logging
 import sys
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, trim, initcap, when
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -14,33 +15,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def clean_products(df, output_dir):
-    logger.info("Starting clean_products transformation...")
-    logger.debug(f"Initial shape: {df.shape}")
+def clean_products(spark, input_path, output_dir):
+    logger.info("Starting PySpark clean_products transformation...")
+    
+    df = spark.read.parquet(input_path)
+    logger.info(f"Initial row count: {df.count()}")
 
     if "price" in df.columns:
-        df["price"] = pd.to_numeric(df["price"], errors="coerce").fillna(0)
-        df = df[df["price"] >= 0]
+        df = df.withColumn("price", col("price").cast("double"))
+        df = df.fillna({"price": 0.0})
+        df = df.filter(col("price") >= 0)
         
     if "category" in df.columns:
-        df["category"] = df["category"].str.strip().str.title()
-        df["category"] = df["category"].fillna("Uncategorized")
-        
-    logger.debug(f"Shape after transformations: {df.shape}")
+        df = df.withColumn("category", initcap(trim(col("category"))))
+        df = df.withColumn("category", when(col("category").isNull(), "Uncategorized").otherwise(col("category")))
 
     # Save to parquet
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "products.parquet")
-    df.to_parquet(output_path, index=False)
-    logger.info(f"Successfully saved {len(df)} rows to {output_path}")
+    df.write.mode("overwrite").parquet(output_path)
+    
+    final_count = spark.read.parquet(output_path).count()
+    logger.info(f"Successfully saved {final_count} rows to {output_path}")
 
 if __name__ == "__main__":
     input_path = "data/bronze/postgres/products.parquet"
     output_dir = "data/silver/postgres"
     
-    logger.info(f"Reading data from {input_path}")
+    spark = SparkSession.builder \
+        .appName("CleanProducts") \
+        .master("local[*]") \
+        .getOrCreate()
+    spark.sparkContext.setLogLevel("ERROR")
+    
     try:
-        df = pd.read_parquet(input_path)
-        clean_products(df, output_dir)
+        clean_products(spark, input_path, output_dir)
     except Exception as e:
         logger.error(f"Error processing products: {e}", exc_info=True)
+    finally:
+        spark.stop()

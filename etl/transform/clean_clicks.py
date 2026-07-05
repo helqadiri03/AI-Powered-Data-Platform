@@ -1,11 +1,12 @@
-import pandas as pd
 import os
 import logging
 import sys
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_timestamp
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -14,36 +15,41 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def clean_clicks(df, output_dir):
-    logger.info("Starting clean_clicks transformation...")
-    logger.debug(f"Initial shape: {df.shape}")
+def clean_clicks(spark, input_path, output_dir):
+    logger.info("Starting PySpark clean_clicks transformation...")
+    
+    df = spark.read.option("multiline", "true").json(input_path)
+    logger.info(f"Initial row count: {df.count()}")
 
     if "click_timestamp" in df.columns:
-        df["click_timestamp"] = pd.to_datetime(df["click_timestamp"], errors="coerce")
-        initial_len = len(df)
-        df.dropna(subset=["click_timestamp"], inplace=True)
-        logger.info(f"Dropped {initial_len - len(df)} rows due to missing click_timestamp.")
+        df = df.withColumn("click_timestamp", to_timestamp(col("click_timestamp")))
+        df = df.dropna(subset=["click_timestamp"])
         
-    # Ensure user_id and session_id are strings
-    for col in ["user_id", "session_id", "ad_id"]:
-        if col in df.columns:
-            df[col] = df[col].astype(str)
-        
-    logger.debug(f"Shape after transformations: {df.shape}")
+    for c in ["user_id", "session_id", "ad_id"]:
+        if c in df.columns:
+            df = df.withColumn(c, col(c).cast("string"))
 
     # Save to parquet
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "clicks.parquet")
-    df.to_parquet(output_path, index=False)
-    logger.info(f"Successfully saved {len(df)} rows to {output_path}")
+    df.write.mode("overwrite").parquet(output_path)
+    
+    final_count = spark.read.parquet(output_path).count()
+    logger.info(f"Successfully saved {final_count} rows to {output_path}")
 
 if __name__ == "__main__":
     input_path = "data/bronze/mongodb/clicks.json"
     output_dir = "data/silver/mongodb"
     
-    logger.info(f"Reading data from {input_path}")
+    spark = SparkSession.builder \
+        .appName("CleanClicks") \
+        .master("local[*]") \
+        .getOrCreate()
+    spark.sparkContext.setLogLevel("ERROR")
+    
     try:
-        df = pd.read_json(input_path)
-        clean_clicks(df, output_dir)
+        clean_clicks(spark, input_path, output_dir)
     except Exception as e:
         logger.error(f"Error processing clicks: {e}", exc_info=True)
+    finally:
+        spark.stop()
