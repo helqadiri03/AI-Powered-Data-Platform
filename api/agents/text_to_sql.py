@@ -92,7 +92,10 @@ Rules you MUST follow:
 - Use meaningful column aliases when aggregating.
 - Prefer JOINs over subqueries for readability.
 - Output ONLY the raw SQL — no markdown, no explanation, no code fences.
-- Do not include a LIMIT clause; the API enforces one automatically.
+- Do NOT include a LIMIT clause; the API enforces one automatically.
+- Do NOT use OFFSET, FETCH NEXT, TOP, or any SQL Server / T-SQL syntax. Snowflake does not support it.
+- Do NOT end the statement with a semicolon (;).
+- the limit should be based on the question not always 500. if the question is "top 10" the limit should be 10.
 """.strip()
 
 
@@ -118,9 +121,15 @@ def _call_groq(question: str, model: str) -> str:
 
 
 def _clean_sql(raw: str) -> str:
-    """Strip any accidental markdown fences the model might emit."""
+    """Strip accidental markdown fences, OFFSET clauses, and trailing semicolons."""
+    # Remove markdown code fences
     raw = re.sub(r"^```(?:sql)?\s*", "", raw, flags=re.IGNORECASE)
     raw = re.sub(r"\s*```$", "", raw)
+    # Remove SQL Server-style OFFSET ... ROWS / FETCH NEXT ... ROWS ONLY
+    raw = re.sub(r"\bOFFSET\s+\d+\s+ROWS?\b.*", "", raw, flags=re.IGNORECASE | re.DOTALL)
+    raw = re.sub(r"\bFETCH\s+NEXT\s+\d+\s+ROWS?\s+ONLY\b", "", raw, flags=re.IGNORECASE)
+    # Strip trailing semicolon
+    raw = raw.strip().rstrip(";")
     return raw.strip()
 
 
