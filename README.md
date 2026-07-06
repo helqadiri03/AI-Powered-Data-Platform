@@ -92,6 +92,8 @@ The system automatically:
 
 ## AI Documentation Assistant (RAG)
 
+![RAG ](docs/rag.png)
+
 The platform includes an intelligent documentation chatbot powered by:
 
 - LangChain
@@ -128,6 +130,10 @@ This guarantees trusted analytical datasets.
 ---
 
 ## Monitoring & Observability
+
+![Resources Analytics ](docs/cpu.png)
+![Resources Analytics2 ](docs/sql.png)
+
 
 Real-time monitoring using:
 
