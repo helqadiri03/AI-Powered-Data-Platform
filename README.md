@@ -1,6 +1,10 @@
 # AI-Powered E-Commerce Analytics Platform
 
+![Architecture Diagram](docs/project-arch.png)
+
 > **An end-to-end Modern Data Platform combining Data Engineering, Analytics Engineering, Artificial Intelligence, and MLOps to enable natural language analytics over an enterprise-grade E-Commerce Data Warehouse.**
+
+A comprehensive, full-stack data platform designed to bridge the gap between complex data infrastructure and business users. This project combines a robust modern data stack (Airflow, Snowflake, dbt) with advanced AI capabilities (Text-to-SQL, RAG) and enterprise-grade monitoring.
 
 ---
 
