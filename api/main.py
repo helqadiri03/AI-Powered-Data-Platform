@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.snowflake_client import test_connection
 from routers.query import router as query_router
+from routers.rag import router as rag_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,6 +52,7 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 app.include_router(query_router)
+app.include_router(rag_router)
 
 
 # ---------------------------------------------------------------------------

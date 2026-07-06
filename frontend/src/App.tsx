@@ -6,8 +6,9 @@ import { runQuery, type QueryResponse } from './services/api';
 import QueryInput from './components/QueryInput';
 import SQLViewer from './components/SQLViewer';
 import ResultsTable from './components/ResultsTable';
+import RAGAssistant from './components/RAGAssistant';
 
-import { AlertTriangle, Database, Cpu, ArrowRight, Sparkles } from 'lucide-react';
+import { AlertTriangle, Database, Cpu, ArrowRight, Sparkles, BookOpen } from 'lucide-react';
 
 type PipelineStage =
   | 'idle'
@@ -25,6 +26,8 @@ const PIPELINE_STEPS: { key: PipelineStage | string; label: string }[] = [
 ];
 
 function App() {
+  const [activeTab, setActiveTab] = useState<'query' | 'docs'>('query');
+
   const [loading, setLoading] = useState(false);
   const [stage, setStage]   = useState<PipelineStage>('idle');
   const [result, setResult] = useState<QueryResponse | null>(null);
@@ -69,10 +72,28 @@ function App() {
         <span className="header-badge">Snowflake MARTS</span>
       </header>
 
+      {/* ---- Tabs ---- */}
+      <div className="tabs-container">
+        <button 
+          className={`tab-btn ${activeTab === 'query' ? 'active' : ''}`}
+          onClick={() => setActiveTab('query')}
+        >
+          <Database size={16} /> Text-to-SQL
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'docs' ? 'active' : ''}`}
+          onClick={() => setActiveTab('docs')}
+        >
+          <BookOpen size={16} /> AI Docs Assistant
+        </button>
+      </div>
+
       {/* ---- Main ---- */}
       <main className="main">
 
-        {/* Hero */}
+        {activeTab === 'query' && (
+          <>
+            {/* Hero */}
         <section className="hero">
           <h1>
             Ask your data<br />
@@ -146,6 +167,12 @@ function App() {
             rows={result.rows}
             rowCount={result.row_count}
           />
+        )}
+          </>
+        )}
+
+        {activeTab === 'docs' && (
+          <RAGAssistant />
         )}
       </main>
     </div>
