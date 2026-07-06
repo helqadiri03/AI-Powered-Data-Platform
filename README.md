@@ -70,6 +70,8 @@ This structure enables fast analytical queries and supports BI tools efficiently
 
 ## AI Text-to-SQL Assistant
 
+![Text-To-SQL ](docs/t-t-sql.png)
+
 Business users can ask questions in natural language.
 
 Example:
