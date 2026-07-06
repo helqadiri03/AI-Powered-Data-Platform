@@ -34,7 +34,7 @@ The entire infrastructure is containerized and follows modern Data Engineering b
 
 ## Modern ELT Pipeline
 
-- PostgreSQL source database
+- PostgreSQL and MongoDB source database
 - Automated ingestion into Snowflake
 - Apache Airflow orchestration
 - dbt transformations
@@ -50,17 +50,14 @@ The warehouse follows the **Kimball Dimensional Modeling** methodology.
 
 ### Fact Tables
 
+- Fact Marketing
 - Fact Sales
-- Fact Orders
-- Fact Revenue
 
 ### Dimension Tables
 
 - Customer
 - Product
-- Category
-- Supplier
-- Geography
+- Campaign
 - Date
 
 This structure enables fast analytical queries and supports BI tools efficiently.
@@ -205,11 +202,12 @@ PostgreSQL
 
 | Technology | Purpose |
 |------------|----------|
-| PostgreSQL | Source transactional database |
-| Snowflake | Cloud Data Warehouse |
-| Apache Airflow | Workflow orchestration |
-| dbt | Data transformation |
-| SQLAlchemy | Database connectivity |
+| PostgreSQL | Source transactional database used to store raw e-commerce operational data |
+| MongoDB | NoSQL database for storing chat history, AI interactions, application logs, and semi-structured documents |
+| Snowflake | Cloud-native Data Warehouse for scalable analytical processing |
+| Apache Airflow | Workflow orchestration and ELT pipeline scheduling |
+| dbt | Data transformation, testing, documentation, and dimensional modeling |
+| SQLAlchemy | Database abstraction layer for PostgreSQL and Snowflake connectivity |
 
 ---
 
@@ -264,52 +262,6 @@ PostgreSQL
 |------------|----------|
 | Docker | Containerization |
 | Docker Compose | Multi-container orchestration |
-
----
-
-# Project Structure
-
-```text
-AI-Ecommerce-Platform/
-
-├── airflow/
-│   ├── dags/
-│   ├── plugins/
-│   └── logs/
-│
-├── backend/
-│   ├── api/
-│   ├── rag/
-│   ├── text_to_sql/
-│   ├── services/
-│   ├── monitoring/
-│   └── core/
-│
-├── frontend/
-│
-├── dbt/
-│   ├── models/
-│   │   ├── bronze/
-│   │   ├── silver/
-│   │   └── gold/
-│   ├── tests/
-│   ├── snapshots/
-│   └── macros/
-│
-├── postgres/
-│
-├── grafana/
-│
-├── prometheus/
-│
-├── docs/
-│
-├── docker-compose.yml
-│
-├── .env.example
-│
-└── README.md
-```
 
 ---
 
