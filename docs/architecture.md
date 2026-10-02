@@ -11,46 +11,40 @@ flowchart TD
         MDB[(MongoDB\nMarketing)]
     end
 
-    subgraph Data Lake (Local Filesystem)
-        BZ[Bronze Layer\nRaw Extracts]
-        SL[Silver Layer\nCleaned/Deduped]
+    subgraph Cloud Data Warehouse - Snowflake
+        RAW[(RAW Schema\nLanding Zone)]
+        STG[(STAGING\nType-cast Views)]
+        INT[(INTERMEDIATE\nJoins & Aggregations)]
+        MRT[(MARTS\nStar Schema)]
     end
-    
-    subgraph Cloud Data Warehouse (Snowflake)
-        RAW[(RAW Schema)]
-        STG[(STAGING Views)]
-        INT[(INTERMEDIATE)]
-        MRT[(MARTS Schema\nStar Schema)]
-    end
-    
+
     subgraph Orchestration
-        AF((Apache Airflow))
+        AF((Apache Airflow\nELT Pipeline))
     end
-    
+
     subgraph Serving & UI
         API[FastAPI\nText-to-SQL Backend]
         LLM[Groq Llama 3.3\nLLM Agent]
         UI[React UI\nVite SPA]
     end
 
-    %% Data flow connections
-    PG -->|Airflow extract| BZ
-    MDB -->|Airflow extract| BZ
-    BZ -->|Airflow Pandas transforms| SL
-    SL -->|Airflow snowflake-connector| RAW
-    
+    %% ELT data flow — Extract & Load (no local transformation)
+    PG -->|Airflow extract_postgres\nwrite_pandas| RAW
+    MDB -->|Airflow extract_mongodb\nwrite_pandas| RAW
+
+    %% Transform — dbt owns all SQL transformations
     RAW -->|dbt build| STG
     STG -->|dbt build| INT
     INT -->|dbt build| MRT
-    
+
     MRT <-->|Queries| API
     API <-->|System Prompt + Schema| LLM
     API <-->|JSON + SQL| UI
-    
+
     %% Orchestration links
     AF -.->|Schedules & Triggers| PG
     AF -.->|Schedules & Triggers| MDB
-    AF -.->|Triggers| STG
+    AF -.->|Triggers dbt_build| STG
 ```
 
 ## Component Breakdown
@@ -59,13 +53,16 @@ flowchart TD
    - **PostgreSQL**: Simulates an operational e-commerce database (Customers, Orders, Items, Products, Reviews).
    - **MongoDB**: Simulates a NoSQL marketing datastore (Campaigns, Ad Spend, Clicks).
 
-2. **Data Lake (Bronze/Silver)**:
-   - Data is extracted as Parquet and JSON files to local storage (`/data/bronze/`).
-   - Airflow tasks use Pandas to clean, format timestamps, and deduplicate data, writing to `/data/silver/`.
+2. **ELT Pipeline (Airflow)**:
+   - Data is extracted from source systems and loaded **directly** into the Snowflake `RAW` schema using `write_pandas`.
+   - There is **no local data lake** (no Bronze/Silver layers on disk). The warehouse IS the landing zone.
+   - All transformation logic lives inside dbt SQL models — not in Python scripts.
 
 3. **Cloud Data Warehouse (Snowflake)**:
-   - Silver data is bulk-loaded into the `RAW` schema.
-   - **dbt (Data Build Tool)** transforms the raw tables into a Kimball-style Star Schema located in the `MARTS` schema.
+   - **RAW**: The landing zone for raw extracted data. Tables mirror source systems exactly.
+   - **STAGING**: dbt views that apply type casting, null handling, and deduplication to RAW tables.
+   - **INTERMEDIATE**: dbt views that join staging models and compute aggregations.
+   - **MARTS**: dbt tables implementing a Kimball-style Star Schema (`fact_sales`, `dim_customer`, etc.).
 
 4. **Intelligent Serving Layer**:
    - **FastAPI**: Hosts the agentic logic.

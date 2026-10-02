@@ -2,14 +2,27 @@ version: 2
 
 sources:
   - name: raw_ecommerce
+    description: >
+      Raw tables landed in Snowflake by the Airflow ELT pipeline.
+      Data is extracted directly from PostgreSQL and MongoDB and loaded
+      as-is into this schema. All type casting, deduplication, and business
+      logic are applied downstream by dbt staging models.
     database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
-    schema: "{{ env_var('SNOWFLAKE_SCHEMA') }}"
+    schema: RAW
     tables:
-      - name: ad_spend
-      - name: campaigns
-      - name: clicks
       - name: customers
-      - name: order_items
+        description: "Raw customer records from PostgreSQL."
       - name: orders
+        description: "Raw order records from PostgreSQL."
+      - name: order_items
+        description: "Raw order line-item records from PostgreSQL."
       - name: products
+        description: "Raw product catalogue records from PostgreSQL."
       - name: reviews
+        description: "Raw customer review records from PostgreSQL."
+      - name: campaigns
+        description: "Raw marketing campaign documents from MongoDB."
+      - name: ad_spend
+        description: "Raw daily ad spend documents from MongoDB."
+      - name: clicks
+        description: "Raw click/impression documents from MongoDB."
