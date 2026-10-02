@@ -1,6 +1,6 @@
 # AI-Powered E-Commerce Analytics Platform
 
-![Architecture Diagram](docs/project-arch.png)
+![Architecture Diagram](docs/the new archetecture for text to sql project.png)
 
 > **An end-to-end Modern Data Platform combining Data Engineering, Analytics Engineering, Artificial Intelligence, and MLOps to enable natural language analytics over an enterprise-grade E-Commerce Data Warehouse.**
 
